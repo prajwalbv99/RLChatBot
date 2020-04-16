@@ -72,6 +72,8 @@ def test_run():
 
     print('Testing Started...')
     episode = 0
+    rewards = []
+    successes = []
     while episode < NUM_EP_TEST:
         episode_reset()
         episode += 1
@@ -95,7 +97,11 @@ def test_run():
             # Grab "next state" as state
             state = state_tracker.get_state(done)
         print('Episode: {} Success: {} Reward: {}'.format(episode, success, ep_reward))
+        rewards.append(ep_reward)
+        successes.append(success)
     print('...Testing Ended')
+    print("Successes - ", sum(successes),len(successes))
+    print("Average Reward - ", sum(rewards)/len(rewards))
 
 
 def episode_reset():
