@@ -2,11 +2,12 @@ from user_simulator import UserSimulator
 from error_model_controller import ErrorModelController
 #from dqn_agent import DQNAgent
 from duellingQNetwork import DuellingQNetworkAgent
+from drqn_agent import DRQNAgent
 from state_tracker import StateTracker
 import pickle, argparse, json
 from user import User
 from utils import remove_empty_slots
-
+import numpy as np
 
 if __name__ == "__main__":
     # Can provide constants file path in args OR run it as is and change 'CONSTANTS_FILE_PATH' below
@@ -59,8 +60,15 @@ if __name__ == "__main__":
         user = User(constants)
     emc = ErrorModelController(db_dict, constants)
     state_tracker = StateTracker(database, constants)
-    dqn_agent = DuellingQNetworkAgent(state_tracker.get_state_size(), constants)
+    dqn_agent = DRQNAgent(state_tracker.get_state_size(), constants)
 
+
+def get_state(states):
+    if len(states) > 3:
+        state_1 = np.stack((states[-4], states[-3], states[-2], states[-1]), axis=0)
+    else:
+        state_1 = np.vstack((np.zeros((4 - len(states), 224)), np.array(states)))
+    return state_1
 
 def test_run():
     """
@@ -82,9 +90,11 @@ def test_run():
         done = False
         # Get initial state from state tracker
         state = state_tracker.get_state()
+        states = [state]
         while not done:
+            dqrn_state = get_state(states)
             # Agent takes action given state tracker's representation of dialogue
-            agent_action_index, agent_action = dqn_agent.get_action(state)
+            agent_action_index, agent_action = dqn_agent.get_action(dqrn_state)
             # Update state tracker with the agent's action
             state_tracker.update_state_agent(agent_action)
             # User takes action given agent action
@@ -97,6 +107,7 @@ def test_run():
             state_tracker.update_state_user(user_action)
             # Grab "next state" as state
             state = state_tracker.get_state(done)
+            states.append(state)
         print('Episode: {} Success: {} Reward: {}'.format(episode, success, ep_reward))
         rewards.append(ep_reward)
         successes.append(success)

@@ -1,11 +1,11 @@
 from user_simulator import UserSimulator
 from error_model_controller import ErrorModelController
-from dqn_agent import DQNAgent
+#from dqn_agent import DQNAgent
+from duellingQNetwork import DuellingQNetworkAgent
 from state_tracker import StateTracker
 import pickle, argparse, json, math
 from utils import remove_empty_slots
 from user import User
-import numpy as np
 
 
 if __name__ == "__main__":
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     params = vars(args)
 
     # Load constants json into dict
-    CONSTANTS_FILE_PATH = 'constants.json'
+    CONSTANTS_FILE_PATH = '/content/drive/My Drive/GO-Bot-DRL/constantsColab.json'
     if len(params['constants_path']) > 0:
         constants_file = params['constants_path']
     else:
@@ -62,14 +62,12 @@ if __name__ == "__main__":
         user = User(constants)
     emc = ErrorModelController(db_dict, constants)
     state_tracker = StateTracker(database, constants)
-    dqn_agent = DQNAgent(state_tracker.get_state_size(), constants)
+    dqn_agent = DuellingQNetworkAgent(state_tracker.get_state_size(), constants)
 
 
 def run_round(state, warmup=False):
     # 1) Agent takes action given state tracker's representation of dialogue (state)
-    #print(state.shape)
-    state_1 = np.stack((state,state,state,state),axis = 0)
-    agent_action_index, agent_action = dqn_agent.get_action(state_1, use_rule=warmup)
+    agent_action_index, agent_action = dqn_agent.get_action(state, use_rule=warmup)
     # 2) Update state tracker with the agent's action
     state_tracker.update_state_agent(agent_action)
     # 3) User takes action given agent action
@@ -81,12 +79,9 @@ def run_round(state, warmup=False):
     state_tracker.update_state_user(user_action)
     # 6) Get next state and add experience
     next_state = state_tracker.get_state(done)
-    #print(type(state))
-    #print(state.shape)
-    #dqn_agent.add_experience(state, agent_action_index, reward, next_state, done)
+    dqn_agent.add_experience(state, agent_action_index, reward, next_state, done)
 
-    return next_state, reward, done, success,(state, agent_action_index, reward, next_state, done)
-#returning the tuple inorder to be added to the local memory.
+    return next_state, reward, done, success
 
 
 def warmup_run():
@@ -104,17 +99,13 @@ def warmup_run():
         # Reset episode
         episode_reset()
         done = False
-        local_memory = []                                #initializing local memory for storing the episodes
         # Get initial state from state tracker
         state = state_tracker.get_state()
         while not done:
-            next_state, _, done, _, exp_tuple = run_round(state, warmup=True)
-            #print(type(exp_tuple[0]))
-            #print(len(exp_tuple[0]))
-            local_memory.append(exp_tuple)
+            next_state, _, done, _ = run_round(state, warmup=True)
             total_step += 1
             state = next_state
-        dqn_agent.add_experience(local_memory)
+
     print('...Warmup Ended')
 
 
@@ -135,13 +126,10 @@ def train_run():
     while episode < NUM_EP_TRAIN:
         episode_reset()
         episode += 1
-        print(episode)
         done = False
         state = state_tracker.get_state()
-        local_memory = []       #unlike the go-bot code that was given, I am trying to add these memory also
         while not done:
-            next_state, reward, done, success, exp_tuple = run_round(state)
-            #local_memory.append(exp_tuple)
+            next_state, reward, done, success = run_round(state)
             period_reward_total += reward
             state = next_state
 

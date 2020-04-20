@@ -1,6 +1,7 @@
 from user_simulator import UserSimulator
 from error_model_controller import ErrorModelController
 from dqn_agent import DQNAgent
+from drqn_agent import DRQNAgent
 from state_tracker import StateTracker
 import pickle, argparse, json, math
 from utils import remove_empty_slots
@@ -62,13 +63,16 @@ if __name__ == "__main__":
         user = User(constants)
     emc = ErrorModelController(db_dict, constants)
     state_tracker = StateTracker(database, constants)
-    dqn_agent = DQNAgent(state_tracker.get_state_size(), constants)
+    dqn_agent = DRQNAgent(state_tracker.get_state_size(), constants)
 
 
-def run_round(state, warmup=False):
+def run_round(states, warmup=False):
     # 1) Agent takes action given state tracker's representation of dialogue (state)
-    #print(state.shape)
-    state_1 = np.stack((state,state,state,state),axis = 0)
+    #print(states[0].shape)
+    if len(states) > 3:
+        state_1 = np.stack((states[-4], states[-3], states[-2], states[-1]), axis=0)
+    else:
+        state_1 = np.vstack((np.zeros((4-len(states), 224)), np.array(states)))
     agent_action_index, agent_action = dqn_agent.get_action(state_1, use_rule=warmup)
     # 2) Update state tracker with the agent's action
     state_tracker.update_state_agent(agent_action)
@@ -85,7 +89,7 @@ def run_round(state, warmup=False):
     #print(state.shape)
     #dqn_agent.add_experience(state, agent_action_index, reward, next_state, done)
 
-    return next_state, reward, done, success,(state, agent_action_index, reward, next_state, done)
+    return next_state, reward, done, success, (states[-1], agent_action_index, reward, next_state, done)
 #returning the tuple inorder to be added to the local memory.
 
 
@@ -107,8 +111,11 @@ def warmup_run():
         local_memory = []                                #initializing local memory for storing the episodes
         # Get initial state from state tracker
         state = state_tracker.get_state()
+        states = []
+        states.append(state)
         while not done:
-            next_state, _, done, _, exp_tuple = run_round(state, warmup=True)
+            next_state, _, done, _, exp_tuple = run_round(states, warmup=True)
+            states.append(next_state)
             #print(type(exp_tuple[0]))
             #print(len(exp_tuple[0]))
             local_memory.append(exp_tuple)
@@ -135,23 +142,26 @@ def train_run():
     while episode < NUM_EP_TRAIN:
         episode_reset()
         episode += 1
-        print(episode)
         done = False
+        states = []
         state = state_tracker.get_state()
         local_memory = []       #unlike the go-bot code that was given, I am trying to add these memory also
+        states.append(state)
         while not done:
-            next_state, reward, done, success, exp_tuple = run_round(state)
-            #local_memory.append(exp_tuple)
+            next_state, reward, done, success,exp_tuple = run_round(states)
+            states.append(next_state)
+            local_memory.append(exp_tuple)
             period_reward_total += reward
             state = next_state
 
         period_success_total += success
-
+        dqn_agent.add_experience(local_memory)
         # Train
         if episode % TRAIN_FREQ == 0:
             # Check success rate
             success_rate = period_success_total / TRAIN_FREQ
             avg_reward = period_reward_total / TRAIN_FREQ
+            print("Episode - ", episode, " : Reward - ", avg_reward, ' : Local memory - ', len(dqn_agent.memory))
             # Flush
             if success_rate >= success_rate_best and success_rate >= SUCCESS_RATE_THRESHOLD:
                 dqn_agent.empty_memory()
