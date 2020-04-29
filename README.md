@@ -1,6 +1,6 @@
 # Training a goal oriented chatbot with Deep Q Network variants
 
-This project builds upon the code base present in [GO-BOT] (https://github.com/maxbren/GO-Bot-DRL) , which is covered in [Training a Goal-Oriented Chatbot with Deep Reinforcement Learning] (https://towardsdatascience.com/training-a-goal-oriented-chatbot-with-deep-reinforcement-learning-part-i-introduction-and-dce3af21d383) 
+This project builds upon the code base present in [GO-BOT](https://github.com/maxbren/GO-Bot-DRL) , which is covered in [Training a Goal-Oriented Chatbot with Deep Reinforcement Learning](https://towardsdatascience.com/training-a-goal-oriented-chatbot-with-deep-reinforcement-learning-part-i-introduction-and-dce3af21d383) 
 The project implements various deep reinforcement learning algorithms for the task of a goal-oriented chatbot using a simple user simulator. The task chosen is that of movie tickets finder.
 
 ## Dependencies
